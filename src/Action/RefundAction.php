@@ -7,7 +7,6 @@ namespace CodeConjure\SimplePayPayum\Action;
 use CodeConjure\SimplePayPayum\Api;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
-use Payum\Core\ApiAwareTrait;
 use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Exception\UnsupportedApiException;
@@ -17,7 +16,6 @@ use Payum\Core\Request\Refund;
 
 class RefundAction implements ActionInterface, ApiAwareInterface, GatewayAwareInterface
 {
-    use ApiAwareTrait;
     use GatewayAwareTrait;
 
     /** @var Api */

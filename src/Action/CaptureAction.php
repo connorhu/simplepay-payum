@@ -7,7 +7,6 @@ namespace CodeConjure\SimplePayPayum\Action;
 use CodeConjure\SimplePayPayum\Api;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
-use Payum\Core\ApiAwareTrait;
 use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Exception\UnsupportedApiException;
@@ -19,7 +18,6 @@ use Payum\Core\Request\GetHttpRequest;
 
 class CaptureAction implements ActionInterface, ApiAwareInterface, GatewayAwareInterface
 {
-    use ApiAwareTrait;
     use GatewayAwareTrait;
 
     /** @var Api */
@@ -57,6 +55,10 @@ class CaptureAction implements ActionInterface, ApiAwareInterface, GatewayAwareI
         ]);
 
         $result = $this->api->startPayment($data);
+
+        if (empty($result['transactionId']) || empty($result['paymentUrl'])) {
+            throw new \RuntimeException('SimplePay API response missing required transactionId or paymentUrl.');
+        }
 
         $model['transactionId'] = $result['transactionId'];
         $model['paymentUrl']    = $result['paymentUrl'];

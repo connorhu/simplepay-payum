@@ -26,6 +26,17 @@ composer require guzzlehttp/guzzle php-http/guzzle7-adapter
 
 ## Configuration (Symfony + PayumBundle)
 
+### Bundle registration
+
+If your application does not use Symfony Flex, register the bundle manually in `config/bundles.php`:
+
+```php
+return [
+    // ...
+    CodeConjure\SimplePayPayum\Bundle\SimplePayBundle::class => ['all' => true],
+];
+```
+
 ```yaml
 # config/packages/payum.yaml
 payum:

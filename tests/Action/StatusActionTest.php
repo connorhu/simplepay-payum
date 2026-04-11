@@ -17,7 +17,7 @@ class StatusActionTest extends TestCase
         $this->action = new StatusAction();
     }
 
-    /** @dataProvider statusProvider */
+    #[\PHPUnit\Framework\Attributes\DataProvider('statusProvider')]
     public function testMapsStatus(string $simplePayStatus, string $expectedMethod): void
     {
         $request = new GetHumanStatus(new \ArrayObject(['status' => $simplePayStatus]));

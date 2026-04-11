@@ -4,14 +4,14 @@
 
 ## Cél
 
-Önálló, nyílt forráskódú Composer csomag (`coreconjure/simplepay-payum`), amely OTP SimplePay v2 REST API integrációt biztosít a Payum fizetési absztrakcióhoz. Tartalmaz Symfony Bundle-t a PayumBundle-lel való egyszerű integrációhoz.
+Önálló, nyílt forráskódú Composer csomag (`codeconjure/simplepay-payum`), amely OTP SimplePay v2 REST API integrációt biztosít a Payum fizetési absztrakcióhoz. Tartalmaz Symfony Bundle-t a PayumBundle-lel való egyszerű integrációhoz.
 
 ---
 
 ## Csomag azonosítók
 
-- **Composer:** `coreconjure/simplepay-payum`
-- **PHP namespace:** `Coreconjure\SimplePayPayum`
+- **Composer:** `codeconjure/simplepay-payum`
+- **PHP namespace:** `Codeconjure\SimplePayPayum`
 - **Payum factory name:** `simplepay`
 - **Symfony Bundle:** `SimplePayBundle`
 
@@ -34,7 +34,7 @@ Dev:
 ## Fájlstruktúra
 
 ```
-coreconjure/simplepay-payum
+codeconjure/simplepay-payum
 ├── src/
 │   ├── Action/
 │   │   ├── CaptureAction.php

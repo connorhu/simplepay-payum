@@ -24,7 +24,6 @@ class SimplePayGatewayFactoryTest extends TestCase
         $config  = new ArrayObject($userConfig);
 
         $method = new \ReflectionMethod(SimplePayGatewayFactory::class, 'populateConfig');
-        $method->setAccessible(true);
         $method->invoke($factory, $config);
 
         return $config;

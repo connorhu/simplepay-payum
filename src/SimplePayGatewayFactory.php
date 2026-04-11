@@ -31,6 +31,8 @@ class SimplePayGatewayFactory extends GatewayFactory
         ]);
 
         if (!$config->offsetExists('payum.api')) {
+            $config->validateNotEmpty(['merchant_id', 'secret_key']);
+
             $config['payum.api'] = new Api(
                 merchantId:     $config['merchant_id'],
                 secretKey:      $config['secret_key'],

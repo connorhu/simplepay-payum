@@ -1,0 +1,6 @@
+{
+	"name": "codeconjure/simplepay-payum",
+	"require": {
+		"php": ">=8.4"
+	}
+}

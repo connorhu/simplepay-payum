@@ -11,7 +11,7 @@
 ## Csomag azonosítók
 
 - **Composer:** `codeconjure/simplepay-payum`
-- **PHP namespace:** `Codeconjure\SimplePayPayum`
+- **PHP namespace:** `CodeConjure\SimplePayPayum`
 - **Payum factory name:** `simplepay`
 - **Symfony Bundle:** `SimplePayBundle`
 

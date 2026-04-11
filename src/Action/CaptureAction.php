@@ -77,8 +77,14 @@ class CaptureAction implements ActionInterface, ApiAwareInterface, GatewayAwareI
             return;
         }
 
-        $returnData    = json_decode(base64_decode($r), true) ?? [];
+        $decoded    = base64_decode($r, true);
+        $returnData = $decoded !== false ? (json_decode($decoded, true) ?? []) : [];
         $transactionId = $returnData['t'] ?? $model['transactionId'];
+
+        if (!isset($model['orderRef'])) {
+            $model['status'] = 'FRAUD';
+            return;
+        }
 
         $result          = $this->api->queryPayment([
             'salt'          => bin2hex(random_bytes(16)),

@@ -38,6 +38,10 @@ class RefundAction implements ActionInterface, ApiAwareInterface, GatewayAwareIn
 
         $model = ArrayObject::ensureArrayObject($request->getModel());
 
+        if (!isset($model['orderRef'], $model['transactionId'], $model['total'])) {
+            throw new \LogicException('Refund requires orderRef, transactionId, and total in model.');
+        }
+
         try {
             $result = $this->api->refundPayment([
                 'salt'          => bin2hex(random_bytes(16)),

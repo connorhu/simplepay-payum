@@ -48,7 +48,12 @@ class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayAwareIn
             throw new HttpResponse('', 400);
         }
 
-        $data  = json_decode($body, true) ?? [];
+        try {
+            $data = $body !== '' ? json_decode($body, true, 512, JSON_THROW_ON_ERROR) : [];
+        } catch (\JsonException $e) {
+            throw new HttpResponse('Bad Request', 400);
+        }
+
         $model = ArrayObject::ensureArrayObject($request->getModel());
 
         $result          = $this->api->queryPayment([
@@ -57,7 +62,7 @@ class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayAwareIn
             'transactionId' => $data['transactionId'] ?? $model['transactionId'],
             'orderRef'      => $data['orderRef'] ?? $model['orderRef'],
         ]);
-        $model['status'] = $result['status'] ?? $data['status'] ?? 'UNKNOWN';
+        $model['status'] = $result['status'] ?? 'UNKNOWN';
 
         throw new HttpResponse('OK', 200);
     }

@@ -41,13 +41,29 @@ class RefundActionTest extends TestCase
         self::assertSame('REFUND', $model['status']);
     }
 
-    public function testThrowsOnApiError(): void
+    public function testThrowsWhenRequiredFieldsMissing(): void
     {
         $action = new RefundAction();
-        $action->setApi($this->makeApi(500, ['message' => 'error']));
+        $action->setApi($this->makeApi(200, [])); // won't be called, but setup needed
         $action->setGateway($this->createMock(GatewayInterface::class));
 
         $this->expectException(\LogicException::class);
         $action->execute(new Refund(new ArrayObject(['transactionId' => 'TXN-1', 'total' => 5000])));
+        // missing 'orderRef'
+    }
+
+    public function testThrowsOnApiError(): void
+    {
+        $action = new RefundAction();
+        $action->setApi($this->makeApi(500, ['error' => 'server error']));
+        $action->setGateway($this->createMock(GatewayInterface::class));
+
+        $this->expectException(\LogicException::class);
+        $action->execute(new Refund(new ArrayObject([
+            'orderRef'      => 'ORD-1',
+            'transactionId' => 'TXN-1',
+            'total'         => 5000,
+            'currency'      => 'HUF',
+        ])));
     }
 }

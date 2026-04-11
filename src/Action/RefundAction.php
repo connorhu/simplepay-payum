@@ -38,16 +38,20 @@ class RefundAction implements ActionInterface, ApiAwareInterface, GatewayAwareIn
 
         $model = ArrayObject::ensureArrayObject($request->getModel());
 
-        $result = $this->api->refundPayment([
-            'salt'          => bin2hex(random_bytes(16)),
-            'merchant'      => $this->api->getMerchantId(),
-            'orderRef'      => $model['orderRef'],
-            'transactionId' => $model['transactionId'],
-            'currency'      => $model['currency'] ?? 'HUF',
-            'refundTotal'   => $model['total'],
-        ]);
+        try {
+            $result = $this->api->refundPayment([
+                'salt'          => bin2hex(random_bytes(16)),
+                'merchant'      => $this->api->getMerchantId(),
+                'orderRef'      => $model['orderRef'],
+                'transactionId' => $model['transactionId'],
+                'currency'      => $model['currency'] ?? 'HUF',
+                'refundTotal'   => $model['total'],
+            ]);
+        } catch (\RuntimeException $e) {
+            throw new \LogicException('Refund failed: ' . $e->getMessage(), previous: $e);
+        }
 
-        $model['status'] = $result['status'] ?? 'REFUND';
+        $model['status'] = 'REFUND';
     }
 
     public function supports($request): bool

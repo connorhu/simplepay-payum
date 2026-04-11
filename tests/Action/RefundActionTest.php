@@ -47,7 +47,7 @@ class RefundActionTest extends TestCase
         $action->setApi($this->makeApi(500, ['message' => 'error']));
         $action->setGateway($this->createMock(GatewayInterface::class));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(\LogicException::class);
         $action->execute(new Refund(new ArrayObject(['transactionId' => 'TXN-1', 'total' => 5000])));
     }
 }

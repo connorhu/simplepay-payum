@@ -11,6 +11,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
@@ -23,12 +24,23 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 #[AutoconfigureTag(name: 'payum.gateway_factory_builder', attributes: ['factory' => 'simplepay'])]
 final class SimplePayGatewayFactoryBuilder extends GatewayFactoryBuilder
 {
+    /**
+     * A `services.xml` a `logger` szolgáltatást `on-invalid="null"`-lal adja
+     * be — tehát MonologBundle nélküli alkalmazásban `null` érkezik ide. A
+     * paraméter nullable-sége ezt az XML-ben tett ígéretet váltja be; enélkül
+     * az első fizetési kísérletnél `TypeError` esne, nem a konténer
+     * felmelegítésekor.
+     */
+    private readonly LoggerInterface $logger;
+
     public function __construct(
         private readonly ClientInterface $httpClient,
         private readonly RequestFactoryInterface $requestFactory,
         private readonly StreamFactoryInterface $streamFactory,
-        private readonly LoggerInterface $logger,
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
+
         parent::__construct(SimplePayGatewayFactory::class);
     }
 

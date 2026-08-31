@@ -55,4 +55,18 @@ final class ExceptionHierarchyTest extends TestCase
             $caught,
         );
     }
+
+    /**
+     * A `catch (SimplePayPayumException $e) { $e->getMessage(); }` alak csak
+     * akkor megy át phpstan level 9-en, ha maga az INTERFÉSZ kiterjeszti a
+     * \Throwable-t — a konkrét osztályok öröklődése ehhez nem elég. Reflexióval
+     * ellenőrizzük, mert a `catch` futásidőben csak instanceof-ot néz, és így
+     * egy sima try/catch teszt nem venné észre, ha ez a deklaráció eltűnne.
+     */
+    public function testTheInterfaceItselfDeclaresThrowableSoCatchBlocksTypeCheck(): void
+    {
+        self::assertTrue(
+            new \ReflectionClass(SimplePayPayumException::class)->implementsInterface(\Throwable::class),
+        );
+    }
 }

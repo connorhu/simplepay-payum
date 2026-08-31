@@ -102,9 +102,13 @@ final class SyncActionTest extends TestCase
         $httpClient = new MockHttpClient();
         $httpClient->addResponse(ApiFactory::signedResponse(self::queryBody(['status' => 'INIT'])));
 
+        // Szándékosan NINCS tárolt transactionId: ezen az ágon — az orderRef
+        // szerinti lekérdezésen — a merge() az egyetlen hely, ami valaha
+        // beírja. Ha stored transactionId is szerepelne, ugyanaz az érték
+        // jönne vissza a lekérdezésből is, és az írás bizonyítatlan maradna.
         $model = new ArrayObject([
             Details::REQUEST_KEY => StartDataFactory::array(),
-            Details::STATE_KEY => ['transactionId' => '509007600', 'status' => 'CANCELLED'],
+            Details::STATE_KEY => ['status' => 'CANCELLED'],
         ]);
 
         $this->action($httpClient)->execute(new Sync($model));
@@ -112,11 +116,13 @@ final class SyncActionTest extends TestCase
         $state = Details::fromModel($model)->state();
 
         self::assertSame(TransactionStatus::Cancelled, $state->status);
-        // Az elutasított ágon is íródnia kell a lekérdezés tényének és a
-        // lekérdezett összegnek — csak az applied mezők (status, method,
-        // paymentDate, finishDate) maradnak érintetlenül.
+        // Az elutasított ágon is íródnia kell a lekérdezés tényének, a
+        // tranzakcióazonosítónak és a lekérdezett összegnek — csak az
+        // applied mezők (status, method, paymentDate, finishDate) maradnak
+        // érintetlenül.
         self::assertNotNull($state->lastCheckedAt, 'A lastCheckedAt-nak az elutasított ágon is íródnia kell.');
         self::assertSame(1000, $state->remainingTotal, 'A remainingTotal-nak az elutasított ágon is íródnia kell.');
+        self::assertSame('509007600', $state->transactionId, 'A transactionId-nak az elutasított ágon is íródnia kell.');
     }
 
     public function testAnUnknownTransactionIsLoudNotSilentlyIgnored(): void

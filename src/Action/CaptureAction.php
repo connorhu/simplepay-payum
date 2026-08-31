@@ -54,10 +54,9 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface
 
         // Lezárt fizetésre soha nem indítunk új tranzakciót: az isLive() csak
         // azt mondja meg, van-e MÉG élő fizetőoldal, arról nem szól, hogy a
-        // fizetés korábban már lezárult-e. A FINISHED VÉGLEGES státusz, tehát
-        // az isLive() alábbi őre előtt magában elbukna ezen az ágon — enélkül
-        // a kód idáig sem jutna el, és egy kifizetett rendelésre is új
-        // /start-ot indítana.
+        // fizetés korábban már lezárult-e. Egy VÉGLEGES státuszra az isLive()
+        // lent `false`-t ad — enélkül a kód simán átcsúszna a startData()-ig,
+        // és egy már kifizetett rendelésre is új, valódi /start-ot indítana.
         if (null !== $state->status && self::isSettled($state->status)) {
             throw new PaymentAlreadySettledException(sprintf(
                 'A fizetés már lezárult "%s" állapotban — új tranzakciót indítani rá dupla '
@@ -118,11 +117,28 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface
      * Az a három állapot, ami után pénz mozgott: ezekre soha nem indítunk új
      * tranzakciót. A többi végleges állapot (CANCELLED, TIMEOUT, NOTAUTHORIZED,
      * FRAUD) halott kísérlet, arra az újrapróbálkozás jogos.
+     *
+     * A `match` KIMERÍTŐ, `default` ág nélkül — ugyanaz a házirend, mint a
+     * `StatusMap`-ban: ha a protokoll-csomag új `TransactionStatus` esetet
+     * vesz fel, ez fordítási hibát ad, nem néma `false`-t. Ez az egyetlen
+     * hely, ahol egy ilyen csendes fallthrough pénzbe kerülne: egy új
+     * státuszt "nem lezárt"-ként kezelve a kód egy már lezárt fizetésre is
+     * megengedne egy friss /start-ot.
      */
     private static function isSettled(TransactionStatus $status): bool
     {
-        return TransactionStatus::Finished === $status ||
-            TransactionStatus::Refund === $status ||
-            TransactionStatus::Reversed === $status;
+        return match ($status) {
+            TransactionStatus::Finished,
+            TransactionStatus::Refund,
+            TransactionStatus::Reversed => true,
+            TransactionStatus::Init,
+            TransactionStatus::InPayment,
+            TransactionStatus::Authorized,
+            TransactionStatus::InFraud,
+            TransactionStatus::Cancelled,
+            TransactionStatus::Timeout,
+            TransactionStatus::NotAuthorized,
+            TransactionStatus::Fraud => false,
+        };
     }
 }

@@ -109,7 +109,14 @@ final class SyncActionTest extends TestCase
 
         $this->action($httpClient)->execute(new Sync($model));
 
-        self::assertSame(TransactionStatus::Cancelled, Details::fromModel($model)->state()->status);
+        $state = Details::fromModel($model)->state();
+
+        self::assertSame(TransactionStatus::Cancelled, $state->status);
+        // Az elutasított ágon is íródnia kell a lekérdezés tényének és a
+        // lekérdezett összegnek — csak az applied mezők (status, method,
+        // paymentDate, finishDate) maradnak érintetlenül.
+        self::assertNotNull($state->lastCheckedAt, 'A lastCheckedAt-nak az elutasított ágon is íródnia kell.');
+        self::assertSame(1000, $state->remainingTotal, 'A remainingTotal-nak az elutasított ágon is íródnia kell.');
     }
 
     public function testAnUnknownTransactionIsLoudNotSilentlyIgnored(): void

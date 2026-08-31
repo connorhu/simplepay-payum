@@ -20,21 +20,22 @@ use Payum\Core\Request\GetStatusInterface;
  */
 final class StatusAction implements ActionInterface
 {
+    /**
+     * Az `instanceof` őrök nem az `assertSupports()`-ot ismétlik meg —
+     * azok adják a statikus elemzőnek a típusszűkítést, amit egy típus-
+     * annotáció csak állítana, nem bizonyítana.
+     */
     public function execute($request): void
     {
-        RequestNotSupportedException::assertSupports($this, $request);
-
-        // Az assertSupports() a supports()-on át már ellenőrizte a típust,
-        // de az `execute($request)` paramétere Payum felől tipizálatlan
-        // marad — a statikus elemzőnek ez az önmagára visszaíró sor mondja
-        // meg, mit tudunk már biztosan a $request-ről és a $model-ről.
-        /** @var GetStatusInterface $request */
-        $request = $request;
+        if (!$request instanceof GetStatusInterface) {
+            throw RequestNotSupportedException::createActionNotSupported($this, $request);
+        }
 
         $model = $request->getModel();
 
-        /** @var \ArrayAccess<string, mixed> $model */
-        $model = $model;
+        if (!$model instanceof \ArrayAccess) {
+            throw RequestNotSupportedException::createActionNotSupported($this, $request);
+        }
 
         StatusMap::apply($request, Details::fromModel($model)->state()->status);
     }

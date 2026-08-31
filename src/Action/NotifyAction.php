@@ -160,7 +160,7 @@ final class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayA
         IpnOutcome $outcome,
         IpnMessage $message,
         ?TransactionStatus $previousStatus,
-        TransactionState $state,
+        TransactionState $updatedState,
     ): void {
         $context = [
             'event' => 'simplepay.ipn.processed',
@@ -169,7 +169,7 @@ final class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayA
             'order_ref' => $message->orderRef,
             'previous_status' => $previousStatus?->value,
             'incoming_status' => $message->status->value,
-            'repeat_count' => $state->ipnLog[count($state->ipnLog) - 1]->repeatCount,
+            'repeat_count' => $updatedState->ipnLog[count($updatedState->ipnLog) - 1]->repeatCount,
         ];
 
         match ($outcome) {

@@ -96,6 +96,28 @@ final class TransactionStateTest extends TestCase
         self::assertFalse($state->isLive(new \DateTimeImmutable(self::NOW)));
     }
 
+    public function testATransactionWithoutAnIdIsNotLiveEvenIfEverythingElseFits(): void
+    {
+        $state = new TransactionState(
+            status: TransactionStatus::Init,
+            paymentUrl: 'https://sb-checkout.simplepay.hu/trx/abc',
+            timeout: new \DateTimeImmutable('2026-08-31T12:30:00+02:00'),
+        );
+
+        self::assertFalse($state->isLive(new \DateTimeImmutable(self::NOW)));
+    }
+
+    public function testATransactionWithoutAPaymentUrlIsNotLiveBecauseThereIsNowhereToSendTheCustomer(): void
+    {
+        $state = new TransactionState(
+            transactionId: 'T1',
+            status: TransactionStatus::Init,
+            timeout: new \DateTimeImmutable('2026-08-31T12:30:00+02:00'),
+        );
+
+        self::assertFalse($state->isLive(new \DateTimeImmutable(self::NOW)));
+    }
+
     public function testTheFirstIpnEntryForAPairGetsRepeatCountOne(): void
     {
         $state = (new TransactionState())->withIpnEntry(
@@ -147,18 +169,29 @@ final class TransactionStateTest extends TestCase
         self::assertSame('T5', $state->ipnLog[0]->transactionId);
     }
 
+    /**
+     * A ciklus szándékosan egy hívással hosszabb, mint amennyi a napló
+     * feltöltéséhez kellene: az `IPN_LOG_LIMIT + 1` összhívásnál a naiv
+     * (a naplóban megmaradt egyező bejegyzéseket megszámoló) és a helyes
+     * (az utolsó egyező bejegyzés számlálójából továbblépő) megvalósítás
+     * még ugyanazt az eredményt adja — a két implementáció csak a
+     * KÖVETKEZŐ hívásnál válik szét, mert a naiv verzió ekkor már nem lát
+     * több egyező bejegyzést, mint amennyi elfér a levágott naplóban, és
+     * beragad. Ha itt megállnánk, a teszt véletlenül zöld maradna egy
+     * hibás implementációval is.
+     */
     public function testTrimmingTheLogDoesNotResetTheRepeatCounter(): void
     {
         $now = new \DateTimeImmutable(self::NOW);
         $state = (new TransactionState())
             ->withIpnEntry($now, 'T', TransactionStatus::Finished, IpnOutcome::Applied);
 
-        for ($i = 0; $i < TransactionState::IPN_LOG_LIMIT; ++$i) {
+        for ($i = 0; $i < TransactionState::IPN_LOG_LIMIT + 1; ++$i) {
             $state = $state->withIpnEntry($now, 'T', TransactionStatus::Finished, IpnOutcome::Duplicate);
         }
 
         $last = $state->ipnLog[TransactionState::IPN_LOG_LIMIT - 1];
 
-        self::assertSame(TransactionState::IPN_LOG_LIMIT + 1, $last->repeatCount);
+        self::assertSame(TransactionState::IPN_LOG_LIMIT + 2, $last->repeatCount);
     }
 }

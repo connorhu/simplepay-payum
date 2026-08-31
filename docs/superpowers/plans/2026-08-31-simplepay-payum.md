@@ -3264,11 +3264,16 @@ lép, amikor tényleg elindult egy tranzakció. Automatikus újrapróbálás nin
 {"salt":"223G0O18VAqdLhQYbJz73adT36YzLtak","orderRef":"101010515680292482600","method":"CARD","merchant":"PUBLICTESTHUF","finishDate":"2019-09-09T14:46:18+0200","paymentDate":"2019-09-09T14:41:13+0200","transactionId":99844942,"status":"FINISHED"}
 ```
 
-> **Ez a fájl byte-pontosan marad.** Nem formázzuk újra, nem tesszük bele
-> sortörést: az aláírás a nyers byte-sorozat fölött számolódik, és a
-> visszaigazolás is ezekből a byte-okból épül. Két megfigyelés, amit a
-> tesztnek rögzítenie kell: a `transactionId` **JSON-szám**, nem string;
-> és **nincs benne `total` és `currency`** — az IPN-ből összeg nem egyeztethető.
+> A fixture BIZONYÍTÉKA a mezőkészlet és a JSON-típusok — ezeket a
+> `json_decode`-alapú tesztek őrzik. A konkrét whitespace viszont a MI
+> rekonstrukciónk a dokumentáció PDF-jéből, nem mért tény: a sign() a
+> lemezen lévő byte-okra számol újra, tehát egy átformázott fixture
+> aláírása is stimmelne. Ezért nem is pineljük le byte-szinten — az egy
+> önkényes formázási döntést rögzítene bizonyítékként.
+>
+> Két megfigyelés, amit a tesztnek rögzítenie kell: a `transactionId`
+> **JSON-szám**, nem string; és **nincs benne `total` és `currency`** —
+> az IPN-ből összeg nem egyeztethető.
 
 `tests/Unit/IpnFixture.php`:
 

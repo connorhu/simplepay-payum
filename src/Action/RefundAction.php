@@ -72,6 +72,14 @@ final class RefundAction implements ActionInterface, ApiAwareInterface
             refundTotal: $response->refundTotal->minorUnits,
             remainingTotal: $response->remainingTotal->minorUnits,
         ));
+
+        // A simplepay_refund névtér egyszer elfogyasztandó parancs, nem
+        // tartós állapot: sikeres /refund után töröljük, különben egy
+        // ismételt Refund dispatch (retry, dupla kattintás) ugyanazt az
+        // összeget olvasná ki újra, és egy második, valódi jóváírást
+        // indítana. Csak a sikeres ágon töröljük — egy sikertelen /refund
+        // után a szándék érintetlen marad a tudatos újrapróbáláshoz.
+        $details->clearRefund();
     }
 
     public function supports($request): bool

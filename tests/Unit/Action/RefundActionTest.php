@@ -95,6 +95,32 @@ final class RefundActionTest extends TestCase
         self::assertSame('FINISHED', Details::fromModel($model)->state()->status?->value);
     }
 
+    /**
+     * A `simplepay_refund` névtér egyszer elfogyasztandó parancs: az első
+     * dispatch után törlődnie kell, különben egy retry vagy dupla kattintás
+     * ugyanazt az összeget olvasná ki újra, és egy második, valódi jóváírást
+     * indítana a SimplePay-nél. A második dispatch tehát PONTOSAN úgy bukik,
+     * mint egy sosem beírt összeg.
+     */
+    public function testASecondDispatchOnTheSameModelDoesNotReissueTheRefund(): void
+    {
+        $httpClient = new MockHttpClient();
+        $httpClient->addResponse(ApiFactory::signedResponse(self::refundBody()));
+
+        $model = self::model(500);
+
+        $this->action($httpClient)->execute(new Refund($model));
+
+        $this->expectException(MissingDetailsException::class);
+        $this->expectExceptionMessage(Details::REFUND_KEY);
+
+        try {
+            $this->action($httpClient)->execute(new Refund($model));
+        } finally {
+            self::assertCount(1, $httpClient->getRequests(), 'A második dispatch nem küldhet második /refund kérést.');
+        }
+    }
+
     public function testItRefusesToDefaultTheAmountToTheFullTotal(): void
     {
         $model = new ArrayObject([

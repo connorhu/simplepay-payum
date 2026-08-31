@@ -72,6 +72,21 @@ final class Details
     }
 
     /**
+     * Törli a `simplepay_refund` névteret a modellből.
+     *
+     * A névtér egy EGYSZER elfogyasztandó parancs, nem tartós állapot: ha
+     * a hívó kétszer dispatch-eli a `Refund`-ot ugyanarra a modellre, a
+     * második dispatch a régi `amount`-ot találná, és egy második, valódi
+     * jóváírást indítana a SimplePay-nél. A törlés a `RefundAction` sikeres
+     * ágán, a `writeState()` UTÁN történik — egy sikertelen `/refund` a
+     * szándékot érintetlenül hagyja, hogy a hívó tudatosan újrapróbálhassa.
+     */
+    public function clearRefund(): void
+    {
+        unset($this->model[self::REFUND_KEY]);
+    }
+
+    /**
      * Egy névtér kiolvasása a details tömbből.
      *
      * A `fromModel()` BÁRMILYEN `\ArrayAccess` modellt elfogad, nem csak a Payum

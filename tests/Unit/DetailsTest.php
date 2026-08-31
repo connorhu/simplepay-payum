@@ -99,6 +99,31 @@ final class DetailsTest extends TestCase
         $details->refundAmount();
     }
 
+    public function testClearRefundRemovesTheNamespaceEntirely(): void
+    {
+        $model = new ArrayObject([
+            Details::REQUEST_KEY => StartDataFactory::array(),
+            Details::REFUND_KEY => ['amount' => 500],
+        ]);
+
+        Details::fromModel($model)->clearRefund();
+
+        self::assertFalse($model->offsetExists(Details::REFUND_KEY));
+
+        $this->expectException(MissingDetailsException::class);
+
+        Details::fromModel($model)->refundAmount();
+    }
+
+    public function testClearRefundOnAnAlreadyAbsentNamespaceIsNotAnError(): void
+    {
+        $model = new ArrayObject([]);
+
+        Details::fromModel($model)->clearRefund();
+
+        self::assertFalse($model->offsetExists(Details::REFUND_KEY));
+    }
+
     public function testItWritesTheStartDataBack(): void
     {
         $model = new ArrayObject([]);

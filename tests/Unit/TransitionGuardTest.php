@@ -60,6 +60,18 @@ final class TransitionGuardTest extends TestCase
         yield 'REFUND után semmi' => [
             TransactionStatus::Refund, TransactionStatus::Finished, TransitionDecision::Rejected,
         ];
+        yield 'CANCELLED-ból REFUND sem' => [
+            TransactionStatus::Cancelled, TransactionStatus::Refund, TransitionDecision::Rejected,
+        ];
+        yield 'TIMEOUT-ból REVERSED sem' => [
+            TransactionStatus::Timeout, TransactionStatus::Reversed, TransitionDecision::Rejected,
+        ];
+        yield 'REFUND-ból REVERSED nem' => [
+            TransactionStatus::Refund, TransactionStatus::Reversed, TransitionDecision::Rejected,
+        ];
+        yield 'REVERSED-ból REFUND nem' => [
+            TransactionStatus::Reversed, TransactionStatus::Refund, TransitionDecision::Rejected,
+        ];
     }
 
     #[DataProvider('transitions')]

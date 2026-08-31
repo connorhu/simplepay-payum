@@ -71,7 +71,12 @@ final class NotifyActionTest extends TestCase
     public function testItAppliesTheStatusAndAnswersWithASignedConfirmation(): void
     {
         $body = IpnFixture::finishedBody();
-        $model = new ArrayObject([Details::STATE_KEY => ['transactionId' => '99844942', 'status' => 'INIT']]);
+        // SZÁNDÉKOSAN nincs transactionId a fixture-ben: az applied() útnak
+        // ÍRNIA kell a tranzakció-azonosítót, nem csak megőriznie egy
+        // korábbit. Ha a fixture eleve az érkező üzenettel egyező
+        // transactionId-t tartalmazná, az alábbi assertSame() akkor is
+        // zöld maradna, ha az applied() sosem írná ki a mezőt.
+        $model = new ArrayObject([Details::STATE_KEY => ['status' => 'INIT']]);
 
         $reply = $this->notify($this->action($body), $model);
 

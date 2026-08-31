@@ -8,6 +8,7 @@ use CodeConjure\SimplePay\Exception\RequestException;
 use CodeConjure\SimplePayPayum\Action\CaptureAction;
 use CodeConjure\SimplePayPayum\Details;
 use CodeConjure\SimplePayPayum\Exception\MissingDetailsException;
+use CodeConjure\SimplePayPayum\Exception\PaymentAlreadySettledException;
 use CodeConjure\SimplePayPayum\Tests\Unit\ApiFactory;
 use CodeConjure\SimplePayPayum\Tests\Unit\Model\StartDataFactory;
 use Http\Mock\Client as MockHttpClient;
@@ -16,6 +17,7 @@ use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Reply\HttpRedirect;
 use Payum\Core\Request\Capture;
 use Payum\Core\Request\Notify;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class CaptureActionTest extends TestCase
@@ -128,6 +130,70 @@ final class CaptureActionTest extends TestCase
 
         self::assertNotNull($httpClient->getLastRequest());
         self::assertSame('509007600', Details::fromModel($model)->state()->transactionId);
+    }
+
+    /**
+     * A CANCELLED VÉGLEGES státusz, de nem tartozik a "pénz mozgott" három
+     * állapot közé — halott kísérlet, tehát az újrapróbálkozás jogos, és
+     * elindul egy friss tranzakció.
+     */
+    public function testACancelledTransactionStartsAFreshOne(): void
+    {
+        $httpClient = new MockHttpClient();
+        $httpClient->addResponse(ApiFactory::signedResponse(self::startResponseBody()));
+
+        $model = new ArrayObject([
+            Details::REQUEST_KEY => StartDataFactory::array(),
+            Details::STATE_KEY => [
+                'transactionId' => 'RÉGI',
+                'status' => 'CANCELLED',
+                'paymentUrl' => 'https://sb-checkout.simplepay.hu/trx/régi',
+                'timeout' => '2020-01-01T10:00:00+01:00',
+                'attempt' => 1,
+            ],
+        ]);
+
+        $this->executeCapture($httpClient, $model);
+
+        self::assertNotNull($httpClient->getLastRequest());
+        self::assertSame('509007600', Details::fromModel($model)->state()->transactionId);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function settledStatuses(): iterable
+    {
+        yield 'FINISHED' => ['FINISHED'];
+        yield 'REFUND' => ['REFUND'];
+        yield 'REVERSED' => ['REVERSED'];
+    }
+
+    /**
+     * A FINISHED, a REFUND és a REVERSED után pénz mozgott — ezekre a
+     * CaptureAction NEM indíthat új tranzakciót, és NEM küldhet HTTP kérést.
+     */
+    #[DataProvider('settledStatuses')]
+    public function testASettledPaymentRefusesToStartASecondTransaction(string $status): void
+    {
+        $httpClient = new MockHttpClient();
+
+        $model = new ArrayObject([
+            Details::REQUEST_KEY => StartDataFactory::array(),
+            Details::STATE_KEY => [
+                'transactionId' => '509007600',
+                'status' => $status,
+            ],
+        ]);
+
+        $this->expectException(PaymentAlreadySettledException::class);
+        $this->expectExceptionMessage($status);
+
+        try {
+            $this->action($httpClient)->execute(new Capture($model));
+        } finally {
+            self::assertCount(0, $httpClient->getRequests(), 'Lezárt fizetésre nem szabad HTTP kérést küldeni.');
+        }
     }
 
     public function testTheAttemptCounterAdvancesOnlyWhenATransactionIsActuallyStarted(): void

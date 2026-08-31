@@ -8,6 +8,7 @@ use CodeConjure\SimplePay\Exception\RequestException;
 use CodeConjure\SimplePay\TransactionStatus;
 use CodeConjure\SimplePayPayum\Api;
 use CodeConjure\SimplePayPayum\Details;
+use CodeConjure\SimplePayPayum\Exception\PaymentAlreadySettledException;
 use CodeConjure\SimplePayPayum\Model\TransactionState;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
@@ -50,6 +51,22 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface
 
         $details = Details::fromModel($model);
         $state = $details->state();
+
+        // Lezárt fizetésre soha nem indítunk új tranzakciót: az isLive() csak
+        // azt mondja meg, van-e MÉG élő fizetőoldal, arról nem szól, hogy a
+        // fizetés korábban már lezárult-e. A FINISHED VÉGLEGES státusz, tehát
+        // az isLive() alábbi őre előtt magában elbukna ezen az ágon — enélkül
+        // a kód idáig sem jutna el, és egy kifizetett rendelésre is új
+        // /start-ot indítana.
+        if (null !== $state->status && self::isSettled($state->status)) {
+            throw new PaymentAlreadySettledException(sprintf(
+                'A fizetés már lezárult "%s" állapotban — új tranzakciót indítani rá dupla '
+                . 'terhelést jelentene, és a meglévő tranzakció adatait is felülírná. '
+                . 'Egy sikertelen kísérlet (CANCELLED, TIMEOUT, NOTAUTHORIZED, FRAUD) után '
+                . 'az újrapróbálkozás megengedett, egy sikeres vagy jóváírt fizetés után nem.',
+                $state->status->value,
+            ));
+        }
 
         // Újra-capture őr: ha a vevő visszalép és újraküld, ne indítsunk
         // második tranzakciót ugyanarra a fizetésre — irányítsuk vissza a
@@ -95,5 +112,17 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface
     public function supports($request): bool
     {
         return $request instanceof Capture && $request->getModel() instanceof \ArrayAccess;
+    }
+
+    /**
+     * Az a három állapot, ami után pénz mozgott: ezekre soha nem indítunk új
+     * tranzakciót. A többi végleges állapot (CANCELLED, TIMEOUT, NOTAUTHORIZED,
+     * FRAUD) halott kísérlet, arra az újrapróbálkozás jogos.
+     */
+    private static function isSettled(TransactionStatus $status): bool
+    {
+        return TransactionStatus::Finished === $status ||
+            TransactionStatus::Refund === $status ||
+            TransactionStatus::Reversed === $status;
     }
 }

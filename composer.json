@@ -36,9 +36,8 @@
     },
     "repositories": [
         {
-            "type": "path",
-            "url": "../simplepay",
-            "options": { "symlink": true }
+            "type": "vcs",
+            "url": "https://github.com/connorhu/simplepay-lib"
         }
     ],
     "config": {

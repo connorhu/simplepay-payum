@@ -103,6 +103,36 @@ final class ArrayReaderTest extends TestCase
         self::assertSame([], ArrayReader::mapList([], 'ipnLog'));
     }
 
+    public function testMapListRejectsAPresentKeyThatIsNotAList(): void
+    {
+        $this->expectException(MissingDetailsException::class);
+        $this->expectExceptionMessage('ipnLog');
+
+        ArrayReader::mapList(['ipnLog' => 'szemét'], 'ipnLog');
+    }
+
+    public function testMapListRejectsAMapWhereAListWasExpected(): void
+    {
+        $this->expectException(MissingDetailsException::class);
+
+        ArrayReader::mapList(['ipnLog' => ['receivedAt' => 'ma']], 'ipnLog');
+    }
+
+    public function testMapListRejectsANonArrayElementRatherThanSkippingIt(): void
+    {
+        $this->expectException(MissingDetailsException::class);
+
+        ArrayReader::mapList(['ipnLog' => [['a' => 1], 'szemét']], 'ipnLog');
+    }
+
+    public function testMapListStillDropsNonStringKeysInsideAnElement(): void
+    {
+        self::assertSame(
+            [['receivedAt' => 'ma']],
+            ArrayReader::mapList(['ipnLog' => [['receivedAt' => 'ma', 0 => 'kiesik']]], 'ipnLog'),
+        );
+    }
+
     public function testNullableDateTimeParsesAnAtomTimestamp(): void
     {
         $parsed = ArrayReader::nullableDateTime(['timeout' => '2026-08-31T10:00:00+02:00'], 'timeout');

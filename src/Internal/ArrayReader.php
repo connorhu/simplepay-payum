@@ -128,8 +128,11 @@ final class ArrayReader
     }
 
     /**
-     * A hiányzó kulcs itt üres listát jelent, nem hibát: egy még sosem
-     * értesített fizetésnek jogosan nincs IPN-naplója.
+     * A hiányzó kulcs az EGYETLEN néma eset: egy sosem értesített fizetésnek
+     * jogosan nincs naplója. A jelen lévő, de rossz típusú kulcs és a sérült
+     * elem viszont a saját hibánk, és hangosan bukik — az ipnLog hordozza a
+     * repeatCount diagnosztikát, amit egy csendben üresre olvasott napló
+     * elnyomna.
      *
      * @param array<string, mixed> $data
      *
@@ -137,21 +140,39 @@ final class ArrayReader
      */
     public static function mapList(array $data, string $key): array
     {
-        $value = $data[$key] ?? [];
-
-        if (!is_array($value) || !array_is_list($value)) {
+        // Hiányzó kulcs: jogos eset — egy sosem értesített fizetésnek nincs naplója.
+        if (!array_key_exists($key, $data)) {
             return [];
+        }
+
+        $value = $data[$key];
+
+        // Jelen lévő, de nem lista: a saját adatunk sérült, ez nem maradhat néma.
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new MissingDetailsException(sprintf(
+                'A "%s" mező nem lista, hanem %s.',
+                $key,
+                get_debug_type($value),
+            ));
         }
 
         $list = [];
 
-        foreach ($value as $item) {
+        foreach ($value as $index => $item) {
+            // Nem tömb elem: a saját adatunk sérült, ez nem maradhat néma.
             if (!is_array($item)) {
-                continue;
+                throw new MissingDetailsException(sprintf(
+                    'Az "%s" lista %d. eleme nem tömb, hanem %s.',
+                    $key,
+                    $index,
+                    get_debug_type($item),
+                ));
             }
 
             $typedItem = [];
 
+            // Nem-string kulcsok az elemen belül: csendben kiesnek — a saját írónk sosem
+            // állít elő numerikus mezőnevet, és a Details::readNamespace() is így viselkedik.
             foreach ($item as $itemKey => $itemValue) {
                 if (is_string($itemKey)) {
                     $typedItem[$itemKey] = $itemValue;

@@ -7,6 +7,7 @@ namespace CodeConjure\SimplePayPayum\Tests\Unit\Action;
 use CodeConjure\SimplePayPayum\Action\StatusAction;
 use CodeConjure\SimplePayPayum\Details;
 use Payum\Core\Bridge\Spl\ArrayObject;
+use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Request\Capture;
 use Payum\Core\Request\GetHumanStatus;
 use PHPUnit\Framework\TestCase;
@@ -57,5 +58,22 @@ final class StatusActionTest extends TestCase
             'A StatusAction nem kaphat API-t: ha kap, előbb-utóbb hálózatozni fog. '
             . 'A lekérdezés a SyncAction dolga.',
         );
+    }
+
+    public function testExecuteRefusesARequestOfTheWrongType(): void
+    {
+        // Az őrök a futásidejű kikényszerítés; a supports() csak a deklaratív
+        // szerződés, amit a Payum kérdez meg. Ha egy hívó megkerüli a
+        // supports()-ot, az execute()-nak akkor is el kell utasítania.
+        $this->expectException(RequestNotSupportedException::class);
+
+        new StatusAction()->execute(new Capture(new ArrayObject([])));
+    }
+
+    public function testExecuteRefusesAStatusRequestWhoseModelIsNotArrayAccess(): void
+    {
+        $this->expectException(RequestNotSupportedException::class);
+
+        new StatusAction()->execute(new GetHumanStatus(new \stdClass()));
     }
 }

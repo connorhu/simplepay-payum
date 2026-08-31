@@ -32,7 +32,7 @@ final class NotifyActionTest extends TestCase
      */
     private function gateway(string $body, array $headers): GatewayInterface
     {
-        $gateway = $this->createMock(GatewayInterface::class);
+        $gateway = $this->createStub(GatewayInterface::class);
         $gateway->method('execute')->willReturnCallback(
             static function (mixed $request) use ($body, $headers): void {
                 if ($request instanceof GetHttpRequestWithHeaders) {

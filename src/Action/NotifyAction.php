@@ -165,6 +165,11 @@ final class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayA
         $context = [
             'event' => 'simplepay.ipn.processed',
             'outcome' => $outcome->value,
+            // A merchant a naplóban akkor válik hasznossá, ha egy alkalmazás
+            // több SimplePay merchant-fiókot is használ (pl. pénznemenként
+            // egyet) — enélkül a naplóból nem derülne ki, melyik fiókra
+            // érkezett az értesítés.
+            'merchant' => $this->api()->merchant,
             'transaction_id' => $message->transactionId,
             'order_ref' => $message->orderRef,
             'previous_status' => $previousStatus?->value,

@@ -18,8 +18,8 @@ use CodeConjure\SimplePay\Environment;
  * szolgáltatásé — tehát a Payum-rétegben a helye, nem a fölötte lévőben.
  *
  * A `$merchant` redundánsnak tűnhet (a `Client` konfigurációjában is benne
- * van), de a `Config` nem publikálja kifelé, és az actionöknek szükségük
- * van rá naplózáshoz és a state feltöltéséhez.
+ * van), de a `Config` nem publikálja kifelé — a `NotifyAction` innen olvassa
+ * ki a naplózáshoz.
  */
 final readonly class Api
 {

@@ -13,6 +13,7 @@ use CodeConjure\SimplePayPayum\Model\IpnOutcome;
 use CodeConjure\SimplePayPayum\Request\GetHttpRequestWithHeaders;
 use CodeConjure\SimplePayPayum\Tests\Unit\ApiFactory;
 use CodeConjure\SimplePayPayum\Tests\Unit\IpnFixture;
+use CodeConjure\SimplePayPayum\TransitionGuard;
 use Http\Mock\Client as MockHttpClient;
 use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\Exception\RequestNotSupportedException;
@@ -21,6 +22,7 @@ use Payum\Core\Reply\HttpResponse;
 use Payum\Core\Request\Capture;
 use Payum\Core\Request\Notify;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 final class NotifyActionTest extends TestCase
 {
@@ -208,6 +210,34 @@ final class NotifyActionTest extends TestCase
         self::assertSame('CARD', $state->method?->value);
         self::assertSame('2019-09-09T14:41:13+02:00', $state->paymentDate?->format(\DateTimeInterface::ATOM));
         self::assertSame('2019-09-09T14:46:18+02:00', $state->finishDate?->format(\DateTimeInterface::ATOM));
+    }
+
+    /**
+     * A `merchant` az `Api`-ból, nem a modellből vagy az üzenetből érkezik —
+     * ez az a hely, ahol az `Api::$merchant` ténylegesen hasznosul: több
+     * merchant-fiókot használó alkalmazásban enélkül a napló nem mondaná
+     * meg, melyik fiókra érkezett az értesítés.
+     */
+    public function testTheLogContextCarriesTheMerchantFromTheApi(): void
+    {
+        $body = IpnFixture::finishedBody();
+
+        $logger = $this->createStub(LoggerInterface::class);
+        /** @var list<array<string, mixed>> $contexts */
+        $contexts = [];
+        $logger->method('info')->willReturnCallback(
+            static function (string $message, array $context) use (&$contexts): void {
+                $contexts[] = $context;
+            },
+        );
+
+        $action = new NotifyAction(new TransitionGuard(), $logger);
+        $action->setApi(ApiFactory::create(new MockHttpClient()));
+        $action->setGateway($this->gateway($body, ['signature' => [IpnFixture::sign($body)]]));
+
+        $this->notify($action, new ArrayObject([]));
+
+        self::assertSame(ApiFactory::MERCHANT, $contexts[0]['merchant'] ?? null);
     }
 
     public function testItSupportsOnlyNotifyRequestsWithAnArrayAccessModel(): void

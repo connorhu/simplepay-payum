@@ -41,6 +41,21 @@ final class DetailsTest extends TestCase
         self::assertSame(0, $state->attempt);
     }
 
+    public function testANamespaceStoredAsAnArrayObjectIsReadRatherThanSeenAsAbsent(): void
+    {
+        // A `fromModel()` bármilyen \ArrayAccess modellt elfogad, és egy hívó
+        // beágyazott \ArrayObject-et is tárolhat névtér-értékként. Kicsomagolás
+        // nélkül ez csendben üres állapotként olvasódna.
+        $model = new ArrayObject([
+            Details::STATE_KEY => new \ArrayObject(['transactionId' => 'T1', 'status' => 'FINISHED']),
+        ]);
+
+        $state = Details::fromModel($model)->state();
+
+        self::assertSame('T1', $state->transactionId);
+        self::assertSame('FINISHED', $state->status?->value);
+    }
+
     public function testWritingTheStateReplacesTheWholeNamespace(): void
     {
         $model = new ArrayObject([

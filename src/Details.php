@@ -74,10 +74,16 @@ final class Details
     /**
      * Egy névtér kiolvasása a details tömbből.
      *
-     * A Payum `Bridge\Spl\ArrayObject::offsetGet()` a beágyazott tömböket
-     * `ArrayObject`-té alakítja vissza — enélkül az unwrap nélkül egy naiv
-     * `is_array()` ellenőrzés objektumot látna, az üres tömb ágra esne, és
-     * egy ténylegesen kitöltött névteret csendben üresként jelentene.
+     * A `fromModel()` BÁRMILYEN `\ArrayAccess` modellt elfogad, nem csak a Payum
+     * `ArrayObject`-jét. Egy hívó tárolhat beágyazott `\ArrayObject`-et névtér-
+     * értékként — a felső réteg például sima SPL `\ArrayObject`-et ad modellként
+     * olyankor, amikor nincs mihez kötni az értesítést. Ezért csomagoljuk ki,
+     * mielőtt döntenénk: enélkül az `is_array()` ellenőrzés elbukna, és egy
+     * ténylegesen feltöltött névtér csendben "hiányzó"-ként olvasódna.
+     *
+     * A Payum `ArrayObject::offsetGet()` maga NEM csomagol — a nyers tárolt
+     * értéket adja vissza —, tehát ezen az úton beágyazott ArrayObject csak
+     * akkor keletkezik, ha a hívó maga tárolt olyat.
      *
      * @return array<string, mixed>
      */

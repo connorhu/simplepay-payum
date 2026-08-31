@@ -61,6 +61,41 @@ final class IpnLogEntryTest extends TestCase
         IpnLogEntry::fromArray($array);
     }
 
+    /**
+     * A `matches()` KIZÁRÓLAG a transactionId + status párra illeszkedhet. Ez a
+     * teszt egy olyan bejegyzést használ, ami mind a három figyelmen kívül
+     * hagyandó mezőben eltér az `entry()` fixture-től — ha bármelyik bekerülne
+     * az összehasonlításba, ez a teszt azonnal bukik.
+     *
+     * A tét nem elméleti: a TransactionState::nextRepeatCount() ezzel keresi
+     * meg az előző bejegyzést ugyanarra a párra. Ha nem találná meg, az
+     * ismétlés-számláló minden értesítésnél 1-ről indulna, és a diagnosztika
+     * csendben megszűnne működni.
+     */
+    public function testItMatchesThePairEvenWhenEveryOtherFieldDiffers(): void
+    {
+        $entry = new IpnLogEntry(
+            receivedAt: new \DateTimeImmutable('2020-01-01T00:00:00+00:00'),
+            transactionId: '99844942',
+            status: TransactionStatus::Finished,
+            outcome: IpnOutcome::Rejected,
+            repeatCount: 7,
+        );
+
+        self::assertTrue($entry->matches('99844942', TransactionStatus::Finished));
+    }
+
+    public function testItRejectsAMissingReceivedAtRatherThanDefaultingToNow(): void
+    {
+        $array = self::entry()->toArray();
+        unset($array['receivedAt']);
+
+        $this->expectException(MissingDetailsException::class);
+        $this->expectExceptionMessage('receivedAt');
+
+        IpnLogEntry::fromArray($array);
+    }
+
     public function testItRejectsAnUnknownStatus(): void
     {
         $array = self::entry()->toArray();

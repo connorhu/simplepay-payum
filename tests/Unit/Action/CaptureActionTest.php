@@ -219,6 +219,42 @@ final class CaptureActionTest extends TestCase
         $this->action(new MockHttpClient())->execute(new Capture(new \stdClass()));
     }
 
+    public function testANewTransactionDoesNotInheritTheFinishedFieldsOfTheOldOne(): void
+    {
+        // A CaptureAction szándékosan ÚJ TransactionState-et épít, nem with()-el:
+        // egy friss tranzakció nem örökölheti az előző befejezési idejét,
+        // fizetési módját vagy jóváírási mezőit. Csak az ipnLog megy át, mert az
+        // a fizetés egészének története.
+        $httpClient = new MockHttpClient();
+        $httpClient->addResponse(ApiFactory::signedResponse(self::startResponseBody()));
+
+        $model = new ArrayObject([
+            Details::REQUEST_KEY => StartDataFactory::array(),
+            Details::STATE_KEY => [
+                'transactionId' => 'RÉGI',
+                'status' => 'TIMEOUT',
+                'method' => 'CARD',
+                'finishDate' => '2020-01-01T10:00:00+01:00',
+                'paymentDate' => '2020-01-01T09:00:00+01:00',
+                'refundTransactionId' => 'RÉGI-JÓVÁÍRÁS',
+                'refundTotal' => 500,
+                'remainingTotal' => 500,
+            ],
+        ]);
+
+        $this->executeCapture($httpClient, $model);
+
+        $state = Details::fromModel($model)->state();
+
+        self::assertNull($state->method);
+        self::assertNull($state->finishDate);
+        self::assertNull($state->paymentDate);
+        self::assertNull($state->refundTransactionId);
+        self::assertNull($state->refundTotal);
+        self::assertNull($state->remainingTotal);
+        self::assertSame('509007600', $state->transactionId);
+    }
+
     public function testItFailsLoudlyWhenNoApiWasInjected(): void
     {
         $this->expectException(\LogicException::class);

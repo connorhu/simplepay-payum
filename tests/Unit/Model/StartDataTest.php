@@ -13,36 +13,9 @@ use PHPUnit\Framework\TestCase;
 
 final class StartDataTest extends TestCase
 {
-    /** @return array<string, mixed> */
-    private static function validArray(): array
-    {
-        return [
-            'orderRef' => 'EZ-2026-0042-17-1',
-            'total' => 1000,
-            'currency' => 'HUF',
-            'customerEmail' => 'vevo@example.com',
-            'invoice' => [
-                'name' => 'Teszt Elek',
-                'country' => 'HU',
-                'city' => 'Budapest',
-                'zip' => '1011',
-                'address' => 'Fő utca 1.',
-            ],
-            'urls' => [
-                'success' => 'https://bolt.hu/vissza?e=success',
-                'fail' => 'https://bolt.hu/vissza?e=fail',
-                'cancel' => 'https://bolt.hu/vissza?e=cancel',
-                'timeout' => 'https://bolt.hu/vissza?e=timeout',
-            ],
-            'language' => 'HU',
-            'methods' => ['CARD'],
-            'attempt' => 1,
-        ];
-    }
-
     public function testItReadsEveryFieldFromTheDetailsArray(): void
     {
-        $data = StartData::fromArray(self::validArray());
+        $data = StartData::fromArray(StartDataFactory::array());
 
         self::assertSame('EZ-2026-0042-17-1', $data->orderRef);
         self::assertSame(1000, $data->total);
@@ -58,14 +31,14 @@ final class StartDataTest extends TestCase
 
     public function testItRoundTripsThroughTheArrayForm(): void
     {
-        $original = self::validArray();
+        $original = StartDataFactory::array();
 
         self::assertSame($original, StartData::fromArray($original)->toArray());
     }
 
     public function testItKeepsTheOptionalInvoiceFieldsWhenPresent(): void
     {
-        $input = self::validArray();
+        $input = StartDataFactory::array();
         $invoice = $input['invoice'];
         self::assertIsArray($invoice);
         $invoice['phone'] = '+36301234567';
@@ -82,7 +55,7 @@ final class StartDataTest extends TestCase
 
     public function testItBuildsAStartRequestWithTheAmountInTheCurrencyMinorUnit(): void
     {
-        $request = StartData::fromArray(self::validArray())->toStartRequest();
+        $request = StartData::fromArray(StartDataFactory::array())->toStartRequest();
 
         $payload = $request->toPayload();
 
@@ -96,7 +69,7 @@ final class StartDataTest extends TestCase
 
     public function testItRejectsAnUnknownCurrency(): void
     {
-        $input = self::validArray();
+        $input = StartDataFactory::array();
         $input['currency'] = 'GBP';
 
         $this->expectException(MissingDetailsException::class);
@@ -107,7 +80,7 @@ final class StartDataTest extends TestCase
 
     public function testItRejectsAnUnknownLanguage(): void
     {
-        $input = self::validArray();
+        $input = StartDataFactory::array();
         $input['language'] = 'FR';
 
         $this->expectException(MissingDetailsException::class);
@@ -118,7 +91,7 @@ final class StartDataTest extends TestCase
 
     public function testItRejectsAMissingCustomerEmailRatherThanSendingAnEmptyOne(): void
     {
-        $input = self::validArray();
+        $input = StartDataFactory::array();
         unset($input['customerEmail']);
 
         $this->expectException(MissingDetailsException::class);
@@ -129,7 +102,7 @@ final class StartDataTest extends TestCase
 
     public function testItRejectsAnEmptyMethodList(): void
     {
-        $input = self::validArray();
+        $input = StartDataFactory::array();
         $input['methods'] = [];
 
         $this->expectException(MissingDetailsException::class);
@@ -139,7 +112,7 @@ final class StartDataTest extends TestCase
 
     public function testItAcceptsAZeroTotalBecauseZeroIsAValidNumber(): void
     {
-        $input = self::validArray();
+        $input = StartDataFactory::array();
         $input['total'] = 0;
 
         self::assertSame(0, StartData::fromArray($input)->total);

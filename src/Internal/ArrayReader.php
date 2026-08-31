@@ -88,16 +88,17 @@ final class ArrayReader
             return null;
         }
 
-        foreach (array_keys($value) as $mapKey) {
+        $typed = [];
+
+        foreach ($value as $mapKey => $mapValue) {
             if (!is_string($mapKey)) {
                 return null;
             }
+
+            $typed[$mapKey] = $mapValue;
         }
 
-        /** @var array<string, mixed> $value */
-        $value = $value;
-
-        return $value;
+        return $typed;
     }
 
     /**
@@ -149,9 +150,15 @@ final class ArrayReader
                 continue;
             }
 
-            /** @var array<string, mixed> $item */
-            $item = $item;
-            $list[] = $item;
+            $typedItem = [];
+
+            foreach ($item as $itemKey => $itemValue) {
+                if (is_string($itemKey)) {
+                    $typedItem[$itemKey] = $itemValue;
+                }
+            }
+
+            $list[] = $typedItem;
         }
 
         return $list;

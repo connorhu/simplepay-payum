@@ -38,8 +38,21 @@ final class ExceptionHierarchyTest extends TestCase
         self::assertInstanceOf($parentClass, $exception);
     }
 
-    public function testTheInterfaceExtendsThrowableSoASingleCatchWorks(): void
+    public function testASingleCatchClauseCatchesEveryExceptionOfThePackage(): void
     {
-        self::assertTrue(is_a(SimplePayPayumException::class, \Throwable::class, true));
+        $caught = [];
+
+        foreach (self::exceptions() as $name => [$exceptionClass]) {
+            try {
+                throw new $exceptionClass('teszt');
+            } catch (SimplePayPayumException $exception) {
+                $caught[$name] = $exception::class;
+            }
+        }
+
+        self::assertSame(
+            array_map(static fn (array $case): string => $case[0], iterator_to_array(self::exceptions())),
+            $caught,
+        );
     }
 }

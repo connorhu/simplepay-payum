@@ -98,6 +98,7 @@ try {
     $gateway->execute(new Notify($payment));
 } catch (HttpResponse $reply) {
     // aláírt visszaigazolás; a modellt a reply eldobása UTÁN is perzisztálni kell
+    return new Response($reply->getContent(), $reply->getStatusCode(), $reply->getHeaders());
 }
 ```
 
@@ -105,6 +106,13 @@ try {
 `ReplyInterface`, amit `throw` visz ki az actionből — a details frissítése
 tehát kivétel-úton hagyja el. `finally` ágban (vagy azzal egyenértékűen)
 kell perzisztálni, különben egy sikeresen feldolgozott IPN nyomtalan marad.
+
+**A `$reply` elkapása önmagában nem elég — vissza is kell adni.** Ha a
+controller csak elkapja a `HttpResponse`-t és nem küldi tovább a
+kliensnek (HTTP válaszként), a SimplePay sosem kapja meg az aláírt
+visszaigazolást, és a végtelenségig ismételni fogja ugyanazt az
+értesítést — pontosan az a hiba, amit ez a csomag a tervezésével meg
+akar előzni.
 
 ### Az `ipnLog` mint műszer
 
@@ -132,6 +140,22 @@ a fejléceket**, ezért ott a feldolgozás hangosan elbukik hiányzó
 - **A `WIRE` fizetési mód nincs kipróbálva élőben.** Az átutalásos folyamat
   a beérkezésig nyitva marad; erről az átmenet-őr táblája semmit nem modellez,
   kártyás folyamatra íródott.
+
+## Ismert korlátok
+
+- **A részleges jóváírás Payum felől TELJES jóváírásnak látszik.** A
+  `StatusMap` a `REFUND` státuszt `markRefunded()`-ra képezi, a
+  `remainingTotal`-ra tekintet nélkül — Payum nem tud arról, hogy a
+  vásárlónak esetleg még jár vissza pénz. Ráadásul, ha a tárolt státusz
+  egyszer `REFUND` lett, az átmenet-őr onnantól MINDEN további `Sync`-et
+  elutasít (lásd a `TransitionGuard` táblázatát), tehát az állapot utólag
+  nem javítható. **A részleges jóváírás emiatt nincs teljesen modellezve
+  ebben a csomagban.**
+- **A `RefundAction` a `refundTotal`-t és a `remainingTotal`-t minden
+  hívásnál felülírja, nem összegzi.** Több, egymást követő részleges
+  jóváírás esetén a `simplepay_state` mindig csak a LEGUTOLSÓ jóváírás
+  adatait tartalmazza — a korábbi részjóváírások összege a tárolt
+  állapotból nem rekonstruálható.
 
 ## Tesztelés
 

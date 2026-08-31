@@ -11,7 +11,6 @@ use CodeConjure\SimplePayPayum\Details;
 use CodeConjure\SimplePayPayum\Model\TransactionState;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
-use Payum\Core\ApiAwareTrait;
 use Payum\Core\Exception\RequestNotSupportedException;
 use Payum\Core\Reply\HttpRedirect;
 use Payum\Core\Request\Capture;
@@ -25,7 +24,7 @@ use Payum\Core\Request\Capture;
  */
 final class CaptureAction implements ActionInterface, ApiAwareInterface
 {
-    use ApiAwareTrait;
+    use SimplePayApiAware;
 
     public function __construct()
     {
@@ -57,8 +56,14 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface
         // még élő fizetőoldalra. A régi implementáció itt új /start-ot
         // indított ugyanazzal az orderRef-fel.
         if ($state->isLive(new \DateTimeImmutable())) {
-            /** @var string $paymentUrl az isLive() garantálja, hogy nem null */
             $paymentUrl = $state->paymentUrl;
+
+            if (null === $paymentUrl) {
+                throw new \LogicException(
+                    'Az isLive() igaznak találta a tranzakciót, de nincs fizetőoldala — '
+                    . 'a TransactionState invariánsa sérült.',
+                );
+            }
 
             throw new HttpRedirect($paymentUrl);
         }
@@ -90,13 +95,5 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface
     public function supports($request): bool
     {
         return $request instanceof Capture && $request->getModel() instanceof \ArrayAccess;
-    }
-
-    private function api(): Api
-    {
-        /** @var Api $api az ApiAwareTrait::setApi() garantálja a típust */
-        $api = $this->api;
-
-        return $api;
     }
 }

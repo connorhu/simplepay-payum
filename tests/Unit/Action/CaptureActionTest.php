@@ -219,6 +219,16 @@ final class CaptureActionTest extends TestCase
         $this->action(new MockHttpClient())->execute(new Capture(new \stdClass()));
     }
 
+    public function testItFailsLoudlyWhenNoApiWasInjected(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Api');
+
+        new CaptureAction()->execute(new Capture(new ArrayObject([
+            Details::REQUEST_KEY => StartDataFactory::array(),
+        ])));
+    }
+
     /** @param ArrayObject<string, mixed> $model */
     private function executeCapture(MockHttpClient $httpClient, ArrayObject $model): void
     {

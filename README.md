@@ -82,6 +82,11 @@ Jóváíráshoz a hívó a `simplepay_refund.amount` kulcsba írja az összeget.
 | `GetStatus` | tiszta olvasás a tárolt állapotból, hálózat nélkül |
 | `Refund` | `/refund` a details-be írt összeggel |
 
+**A `Capture` `PaymentAlreadySettledException`-t dob, ha a tárolt státusz
+már `FINISHED`, `REFUND` vagy `REVERSED`** — ekkor nem küld HTTP kérést,
+és nem indít új tranzakciót. Az újrapróbálkozás csak egy sikertelen
+kísérlet (`CANCELLED`, `TIMEOUT`, `NOTAUTHORIZED`, `FRAUD`) után jogos.
+
 ## Az IPN feldolgozása
 
 A SimplePay egyetlen, a kereskedői vezérlőpanelen beállított URL-re posztol —
@@ -97,9 +102,14 @@ $payment = $this->findPaymentBy($ipn->getMessage()->orderRef);   // most már hi
 try {
     $gateway->execute(new Notify($payment));
 } catch (HttpResponse $reply) {
-    // aláírt visszaigazolás; a modellt a reply eldobása UTÁN is perzisztálni kell
-    return new Response($reply->getContent(), $reply->getStatusCode(), $reply->getHeaders());
+    $response = new Response($reply->getContent(), $reply->getStatusCode(), $reply->getHeaders());
+} finally {
+    // a modellt a reply eldobása UTÁN is perzisztálni kell, egyébként egy
+    // sikeresen feldolgozott IPN nyomtalan marad
+    $this->paymentRepository->add($payment);
 }
+
+return $response;
 ```
 
 **A modell visszaírása a hívó felelőssége.** A `HttpResponse` egy
@@ -147,10 +157,12 @@ a fejléceket**, ezért ott a feldolgozás hangosan elbukik hiányzó
   `StatusMap` a `REFUND` státuszt `markRefunded()`-ra képezi, a
   `remainingTotal`-ra tekintet nélkül — Payum nem tud arról, hogy a
   vásárlónak esetleg még jár vissza pénz. Ráadásul, ha a tárolt státusz
-  egyszer `REFUND` lett, az átmenet-őr onnantól MINDEN további `Sync`-et
-  elutasít (lásd a `TransitionGuard` táblázatát), tehát az állapot utólag
-  nem javítható. **A részleges jóváírás emiatt nincs teljesen modellezve
-  ebben a csomagban.**
+  egyszer `REFUND` lett, az átmenet-őr onnantól egyetlen további `Sync`-kel
+  sem engedi megváltoztatni a státuszt (lásd a `TransitionGuard`
+  táblázatát): egy ismételt, azonos `REFUND` `Duplicate`-nek, minden más
+  `Rejected`-nek minősül — a `status` mező utólag egyik esetben sem
+  javítható. **A részleges jóváírás emiatt nincs teljesen modellezve ebben
+  a csomagban.**
 - **A `RefundAction` a `refundTotal`-t és a `remainingTotal`-t minden
   hívásnál felülírja, nem összegzi.** Több, egymást követő részleges
   jóváírás esetén a `simplepay_state` mindig csak a LEGUTOLSÓ jóváírás

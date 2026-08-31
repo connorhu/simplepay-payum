@@ -10,12 +10,17 @@ use CodeConjure\SimplePayPayum\Model\StartData;
 use CodeConjure\SimplePayPayum\Model\TransactionState;
 
 /**
- * A két csomag közötti szerződés: a Payum `details` tömb két elkülönített
- * névtere.
+ * A két csomag közötti szerződés: a Payum `details` tömb elkülönített
+ * névterei.
  *
  * - `simplepay_request` — a felső réteg írja, ez a csomag olvassa
  * - `simplepay_state`   — ez a csomag írja, mindkettő olvassa
- * - `simplepay_refund`  — a felső réteg írja, ez a csomag olvassa
+ * - `simplepay_refund`  — a felső réteg írja, ez a csomag olvassa ÉS törli
+ *
+ * A `simplepay_refund` egy EGYSZER elfogyasztandó parancs, nem tartós
+ * állapot: a `RefundAction` a sikeres `/refund` után törli (`clearRefund()`),
+ * hogy egy második dispatch ne indítson még egy valódi jóváírást. A
+ * jóváírás tartós nyoma nem itt, hanem a `simplepay_state.refundTotal`-ban él.
  *
  * Nyers string-indexelés a details tömbön SEHOL nem megengedett — az a
  * régi implementáció hibaosztálya volt (`order_ref` olvasása ott, ahol

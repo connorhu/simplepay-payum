@@ -4,61 +4,86 @@ declare(strict_types=1);
 
 namespace CodeConjure\SimplePayPayum\Action;
 
+use CodeConjure\SimplePay\Money;
+use CodeConjure\SimplePay\Request\RefundRequest;
 use CodeConjure\SimplePayPayum\Api;
+use CodeConjure\SimplePayPayum\Details;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
-use Payum\Core\Bridge\Spl\ArrayObject;
 use Payum\Core\Exception\RequestNotSupportedException;
-use Payum\Core\Exception\UnsupportedApiException;
-use Payum\Core\GatewayAwareInterface;
-use Payum\Core\GatewayAwareTrait;
 use Payum\Core\Request\Refund;
 
-class RefundAction implements ActionInterface, ApiAwareInterface, GatewayAwareInterface
+/**
+ * Jóváírást indít.
+ *
+ * A Payum `Refund` requestnek nincs összeg mezője, ezért a hívó a
+ * `simplepay_refund.amount` kulcsba írja a szándékot — a pénznem valódi
+ * alegységében. Hiányzó összeg hangos hiba: NINCS olyan alapértelmezés,
+ * hogy „akkor a teljes összeg". Egy jóváírás összegét nem találjuk ki.
+ *
+ * A státuszt ez az action NEM változtatja meg. Hogy a tranzakció valóban
+ * `REFUND` állapotba került-e, azt az IPN vagy egy `Sync` dönti el — a
+ * jóváírás elindítása és a jóváírás beállása két különböző esemény.
+ */
+final class RefundAction implements ActionInterface, ApiAwareInterface
 {
-    use GatewayAwareTrait;
+    use SimplePayApiAware;
 
-    /** @var Api */
-    protected $api;
-
-    public function setApi($api): void
+    public function __construct()
     {
-        if (!$api instanceof Api) {
-            throw new UnsupportedApiException(sprintf('Expected %s instance.', Api::class));
-        }
-        $this->api = $api;
+        $this->apiClass = Api::class;
     }
 
+    /**
+     * Az `instanceof` őrök nem az `assertSupports()`-ot ismétlik meg —
+     * azok adják a statikus elemzőnek a típusszűkítést, amit egy típus-
+     * annotáció csak állítana, nem bizonyítana.
+     */
     public function execute($request): void
     {
-        /** @var Refund $request */
-        RequestNotSupportedException::assertSupports($this, $request);
-
-        $model = ArrayObject::ensureArrayObject($request->getModel());
-
-        if (!isset($model['orderRef'], $model['transactionId'], $model['total'])) {
-            throw new \LogicException('Refund requires orderRef, transactionId, and total in model.');
+        if (!$request instanceof Refund) {
+            throw RequestNotSupportedException::createActionNotSupported($this, $request);
         }
 
-        try {
-            $result = $this->api->refundPayment([
-                'salt'          => bin2hex(random_bytes(16)),
-                'merchant'      => $this->api->getMerchantId(),
-                'orderRef'      => $model['orderRef'],
-                'transactionId' => $model['transactionId'],
-                'currency'      => $model['currency'] ?? 'HUF',
-                'refundTotal'   => $model['total'],
-            ]);
-        } catch (\RuntimeException $e) {
-            throw new \LogicException('Refund failed: ' . $e->getMessage(), previous: $e);
+        $model = $request->getModel();
+
+        if (!$model instanceof \ArrayAccess) {
+            throw RequestNotSupportedException::createActionNotSupported($this, $request);
         }
 
-        $model['status'] = 'REFUND';
+        $details = Details::fromModel($model);
+
+        $amount = $details->refundAmount();
+        $state = $details->state();
+
+        // Nincs tranzakció-azonosítónk: a hivatkozás az egyetlen fogódzó.
+        // Ha az sincs, a startData() hangos hibát dob — egy sosem
+        // elindított fizetést nem lehet jóváírni.
+        $orderRef = null === $state->transactionId ? $details->startData()->orderRef : null;
+
+        $response = $this->api()->client->refund(new RefundRequest(
+            refundTotal: Money::fromMinorUnits($amount, $this->api()->currency),
+            orderRef: $orderRef,
+            transactionId: $state->transactionId,
+        ));
+
+        $details->writeState($state->with(
+            refundTransactionId: $response->refundTransactionId,
+            refundTotal: $response->refundTotal->minorUnits,
+            remainingTotal: $response->remainingTotal->minorUnits,
+        ));
+
+        // A simplepay_refund névtér egyszer elfogyasztandó parancs, nem
+        // tartós állapot: sikeres /refund után töröljük, különben egy
+        // ismételt Refund dispatch (retry, dupla kattintás) ugyanazt az
+        // összeget olvasná ki újra, és egy második, valódi jóváírást
+        // indítana. Csak a sikeres ágon töröljük — egy sikertelen /refund
+        // után a szándék érintetlen marad a tudatos újrapróbáláshoz.
+        $details->clearRefund();
     }
 
     public function supports($request): bool
     {
-        return $request instanceof Refund
-            && $request->getModel() instanceof \ArrayAccess;
+        return $request instanceof Refund && $request->getModel() instanceof \ArrayAccess;
     }
 }

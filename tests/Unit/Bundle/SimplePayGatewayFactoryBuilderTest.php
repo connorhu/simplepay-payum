@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CodeConjure\SimplePayPayum\Tests\Unit\Bundle;
 
 use CodeConjure\SimplePayPayum\Bundle\Builder\SimplePayGatewayFactoryBuilder;
+use CodeConjure\SimplePayPayum\Bundle\DependencyInjection\SimplePayPayumExtension;
 use CodeConjure\SimplePayPayum\SimplePayGatewayFactory;
 use Http\Mock\Client as MockHttpClient;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -15,12 +16,12 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * A `services.xml` a `logger` argumentumot `on-invalid="null"`-lal adja be —
+ * A `services.php` a `logger` argumentumot `nullOnInvalid()`-dal adja be —
  * tehát a builder konstruktorának `null`-t is el KELL fogadnia. Ez a
  * névtér korábban egyetlen tesztet sem tartalmazott, pedig ez az egyetlen
  * integrációs varrat, amit ez a csomag birtokol.
@@ -75,14 +76,14 @@ final class SimplePayGatewayFactoryBuilderTest extends TestCase
     }
 
     /**
-     * A `services.xml`-t VALÓDI Symfony konténerbe töltjük be — PSR-18/PSR-17
+     * A `services.php`-t (a bundle extensionjén át) VALÓDI Symfony konténerbe töltjük be — PSR-18/PSR-17
      * szolgáltatásokkal, de SZÁNDÉKOSAN `logger` nélkül, ahogy egy
      * MonologBundle nélküli alkalmazásban történne. Ha a builder konstruktora
      * valaha visszakerülne nem-nullable `LoggerInterface`-re, ez a teszt a
      * `ContainerBuilder::get()` hívásnál `TypeError`-ral bukna, pontosan úgy,
      * ahogy egy éles alkalmazás az első fizetési kísérletnél bukna.
      */
-    public function testTheServicesXmlBootsWithoutALoggerServiceRegistered(): void
+    public function testTheServiceConfigBootsWithoutALoggerServiceRegistered(): void
     {
         $container = new ContainerBuilder();
 
@@ -95,11 +96,7 @@ final class SimplePayGatewayFactoryBuilderTest extends TestCase
 
         // SZÁNDÉKOSAN nincs 'logger' szolgáltatás regisztrálva.
 
-        $loader = new XmlFileLoader(
-            $container,
-            new FileLocator(__DIR__ . '/../../../src/Bundle/Resources/config'),
-        );
-        $loader->load('services.xml');
+        new SimplePayPayumExtension()->load([], $container);
 
         $container->getDefinition('codeconjure_simplepay_payum.gateway_factory_builder')->setPublic(true);
 
@@ -108,5 +105,39 @@ final class SimplePayGatewayFactoryBuilderTest extends TestCase
         $builder = $container->get('codeconjure_simplepay_payum.gateway_factory_builder');
 
         self::assertInstanceOf(SimplePayGatewayFactoryBuilder::class, $builder);
+    }
+
+    /**
+     * A betöltött definíció pontosan azt adja, amit a korábbi `services.xml`:
+     * PSR-18/PSR-17 referenciák, `null`-ra eső `logger` és a
+     * `payum.gateway_factory_builder` tag `factory: simplepay` attribútummal.
+     */
+    public function testTheServiceDefinitionMatchesTheContract(): void
+    {
+        $container = new ContainerBuilder();
+        new SimplePayPayumExtension()->load([], $container);
+
+        $definition = $container->getDefinition('codeconjure_simplepay_payum.gateway_factory_builder');
+
+        self::assertSame(SimplePayGatewayFactoryBuilder::class, $definition->getClass());
+        self::assertFalse($definition->isPublic());
+
+        $arguments = $definition->getArguments();
+        self::assertCount(4, $arguments);
+
+        $expected = [
+            [ClientInterface::class, ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE],
+            [RequestFactoryInterface::class, ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE],
+            [StreamFactoryInterface::class, ContainerInterface::EXCEPTION_ON_INVALID_REFERENCE],
+            ['logger', ContainerInterface::NULL_ON_INVALID_REFERENCE],
+        ];
+        foreach ($expected as $index => [$id, $invalidBehavior]) {
+            $argument = $arguments[$index];
+            self::assertInstanceOf(Reference::class, $argument);
+            self::assertSame($id, (string) $argument);
+            self::assertSame($invalidBehavior, $argument->getInvalidBehavior());
+        }
+
+        self::assertSame([['factory' => 'simplepay']], $definition->getTag('payum.gateway_factory_builder'));
     }
 }

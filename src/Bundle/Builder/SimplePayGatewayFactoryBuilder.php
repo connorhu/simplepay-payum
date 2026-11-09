@@ -25,9 +25,9 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 final class SimplePayGatewayFactoryBuilder extends GatewayFactoryBuilder
 {
     /**
-     * A `services.xml` a `logger` szolgáltatást `on-invalid="null"`-lal adja
+     * A `services.php` a `logger` szolgáltatást `nullOnInvalid()`-dal adja
      * be — tehát MonologBundle nélküli alkalmazásban `null` érkezik ide. A
-     * paraméter nullable-sége ezt az XML-ben tett ígéretet váltja be; enélkül
+     * paraméter nullable-sége ezt a konfigurációban tett ígéretet váltja be; enélkül
      * az első fizetési kísérletnél `TypeError` esne, nem a konténer
      * felmelegítésekor.
      */
